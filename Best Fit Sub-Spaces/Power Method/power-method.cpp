@@ -4,6 +4,7 @@
 #include <cmath>
 #include <string>
 #include <ctime>
+#include <algorithm>
 #include "power-method.h"
 
 
@@ -20,7 +21,7 @@ int main(){
     display_matrix(upper_diagonal); // Display the matrix
     clock_t start_time = clock();
     printf("\n-----------------\n\nv1 by power method:\n-------------------\n\n");
-    display_vector(power_method(upper_diagonal, 0.0, 1e5));
+    display_vector(power_method_v1(upper_diagonal, 1e-30, 1e5));
     printf("\nTime to run 1e5 cycles of power method: %lf\n", (double)(clock() - start_time)/CLOCKS_PER_SEC);
     return 0;
 }
@@ -92,17 +93,33 @@ std::vector<T>& vector_matrix_mul_inplace(const std::vector<std::vector<T>> &mat
 }
 
 // Normalize given vector
-std::vector<double>& normalize_vector(std::vector<double> &vec){
-    double norm = 0.0;
+std::vector<double>& normalize_vector_inplace(std::vector<double> &vec){
+    double norm = get_norm(vec);;
     int i;
-    for(i = 0; i < vec.size(); i++)
-        norm += pow(vec.at(i), 2);
-    norm = pow(norm, 0.5);
     if(norm == 0.0)
         return vec;
     for(i = 0; i < vec.size(); i++)
         vec.at(i) = vec.at(i) / norm;
     return vec;
+}
+
+// Subtract vector second from first and save the result in first
+template<typename T>
+std::vector<T>& subtract_vectors_inplace(std::vector<T> &first, const std::vector<T> &second){
+    int i;
+    for(i = 0; i != first.size(); ++i)
+        first.at(i) -= (i < second.size()) ? second.at(i) : (T)0;
+    return first;
+}
+
+double get_norm(const std::vector<double> &vec)
+{
+    double norm = 0.0;
+    int i;
+    for (i = 0; i < vec.size(); i++)
+        norm += pow(vec.at(i), 2);
+    norm = pow(norm, 0.5);
+    return norm;
 }
 
 // Transpose the matrix
@@ -121,15 +138,36 @@ std::vector<std::vector<T>> transpose(const std::vector<std::vector<T>> &matrix)
 }
 
 // Power method for v1
-std::vector<double> power_method(const std::vector<std::vector<double>> &matrix, const double min_error, const int max_iterations){
+std::vector<double> power_method_v1(const std::vector<std::vector<double>> &matrix, const double min_error, const int max_iterations){
     int vector_size = matrix.size();
     std::vector<double> mean(vector_size, 0.0);
     std::vector<double> x = generate_gaussian_vector(mean, 1.0);
     std::vector<std::vector<double>> transposed_matrix = transpose(matrix);
+    std::vector<double> difference_vector(vector_size);
+    std::vector<double> previous_x(vector_size);
     int i;
-    //TODO: Add check for min_error
     for(i = 0; i < max_iterations; i++){
-       x = normalize_vector(vector_matrix_mul_inplace(matrix, vector_matrix_mul_inplace(transposed_matrix, x)));
+       x = normalize_vector_inplace(vector_matrix_mul_inplace(matrix, vector_matrix_mul_inplace(transposed_matrix, x)));
+       if(i > 0){
+        std::copy(x.begin(), x.end(), difference_vector.begin());
+        difference_vector = subtract_vectors_inplace(difference_vector, previous_x);
+        if(get_norm(difference_vector) < min_error)
+            return x;
+       }
+       std::copy(x.begin(), x.end(), previous_x.begin());
     }
     return x;
+} 
+
+// Power method for first k singular vectors
+std::vector<std::vector<double>> power_method_v1(const std::vector<std::vector<double>> &matrix, const int k, const double min_error, const int max_iterations){
+    int vector_size = matrix.size();
+    std::vector<double> mean(vector_size, 0.0);
+    std::vector<double> x = generate_gaussian_vector(mean, 1.0);
+    // TODO: Create first estimation of k-singular vectors, viz, x, Ax, .., A^(k-1)x
+    // TODO: Function to calculate in place basis formed by k-vectors
+    // TODO: Deep Copy of vector of vectors
+    // TODO: Iterate through i for max_iterations, applying A to singular vectors and calculating its basis 
+    std::vector<std::vector<double>> y;
+    return y;
 } 
